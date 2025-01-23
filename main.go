@@ -31,6 +31,7 @@ var excludedField = make(map[string]bool)
 var typeInfo bool
 
 type cliOptions struct {
+	// TODO: check AuthDB option usage
 	AuthDB          string
 	Database        string
 	Help            bool
@@ -49,6 +50,9 @@ func main() {
 	excludedField["upsert"] = true
 	excludedField["ordered"] = true
 	excludedField["$readPreference"] = true
+	excludedField["$writePreference"] = true
+	// excludedField["batchSize"] = true
+	excludedField["remove"] = true
 
 	opts, err := getOptions()
 	if err != nil {
@@ -126,7 +130,7 @@ func conv_bsonD(query bson.D) bson.D {
 
 func conv_bsonE(elem bson.E) interface{} {
 	if elem.Value == nil {
-		return "***"
+		return nil
 	}
 
 	switch v := elem.Value.(type) {
@@ -186,7 +190,6 @@ func getDocs(ctx context.Context, cursor *mongo.Cursor) {
 		if err != nil {
 			log.Fatalf("Cannot transform BSON to JSON: %s", err)
 		}
-		// fmt.Println(string(queryBson))
 		fmt.Printf("脱敏后 %s: %s\n", query.Op, string(queryBson))
 	}
 }
@@ -217,6 +220,7 @@ func getOptions() (*cliOptions, error) {
 	gop := getopt.New()
 	gop.BoolVarLong(&opts.Help, "help", '?', "Show help")
 
+	gop.StringVarLong(&opts.Host, "host", 'h', "MongoDB host:port")
 	gop.ListVarLong(&opts.SkipCollections, "skip-collections", 's', "A comma separated list of collections (namespaces) to skip."+
 		"  Default: "+DEFAULT_SKIPCOLLECTIONS)
 
@@ -232,10 +236,7 @@ func getOptions() (*cliOptions, error) {
 	gop.SetParameters("host[:port]")
 
 	gop.Parse(os.Args)
-	if gop.NArgs() > 0 {
-		opts.Host = gop.Arg(0)
-		gop.Parse(gop.Args())
-	}
+
 	if opts.Help {
 		gop.PrintUsage(os.Stdout)
 		return nil, nil
